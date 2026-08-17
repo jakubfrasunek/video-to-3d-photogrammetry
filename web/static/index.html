@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Video to 3D Photogrammetry</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script>
+    const savedLang = localStorage.getItem("v23d-lang");
+    if (savedLang) document.documentElement.lang = savedLang;
+  </script>
+  <script type="importmap">
+    { "imports": { "three": "/vendor/three.module.js" } }
+  </script>
+</head>
+<body>
+  <div class="wallpaper" aria-hidden="true">
+    <i class="beam"></i>
+    <i class="glow"></i>
+    <i class="grain"></i>
+  </div>
+  <header class="appbar">
+    <div class="brand" id="brand" role="button" tabindex="0">
+      <span class="app-mark" aria-hidden="true"></span>
+      <div>
+        <strong>Video to 3D</strong>
+        <span>Photogrammetry</span>
+      </div>
+    </div>
+    <div class="appbar-end">
+      <p class="health hidden" id="health"></p>
+      <div class="langs" role="group" aria-label="Language"></div>
+    </div>
+  </header>
+
+  <main>
+    <section id="stage-home" class="panel">
+      <div class="row">
+        <div>
+          <p class="label" data-i18n="library">Knihovna</p>
+          <h2 data-i18n="models">Modely</h2>
+        </div>
+        <div class="row-actions">
+          <button type="button" class="btn" id="reveal-library" data-i18n="open_folder">Otevřít složku</button>
+          <button type="button" class="btn primary" id="new-project" data-i18n="new_model">Nový model</button>
+        </div>
+      </div>
+      <div id="project-list" class="project-list"></div>
+      <p class="empty hidden" id="library-empty" data-i18n="library_empty">Zatím tu nic není. Vytvoř nový model z videa.</p>
+    </section>
+
+    <section id="stage-drop" class="panel hidden">
+      <div class="row">
+        <div>
+          <p class="label" data-i18n="new_model">Nový model</p>
+          <h2 data-i18n="pick_videos">Vyber videa</h2>
+        </div>
+        <button type="button" class="btn" id="cancel-new" data-i18n="library">Knihovna</button>
+      </div>
+      <div id="drop" class="drop" tabindex="0">
+        <p class="title" data-i18n="drop_title">Videa do knihovny</p>
+        <p class="sub" data-i18n="drop_sub">Vyber jedno nebo víc videí, nebo je sem přetáhni. MOV, MP4, M4V.</p>
+        <div class="actions">
+          <button type="button" class="btn primary" id="pick-mac" data-i18n="pick_videos_btn">Vybrat videa</button>
+        </div>
+      </div>
+      <p class="hint" id="drop-status"></p>
+    </section>
+
+    <section id="stage-settings" class="panel hidden">
+      <div class="row">
+        <div>
+          <p class="label" data-i18n="video">Video</p>
+          <h2 id="video-name">—</h2>
+          <p class="sub" id="video-batch"></p>
+        </div>
+        <button type="button" class="btn" id="reset-1" data-i18n="library">Knihovna</button>
+      </div>
+
+      <div class="group">
+        <div class="row tight">
+          <h3 data-i18n="quality_title">Kvalita modelu</h3>
+          <p class="sub" data-i18n="quality_sub">Od rychlého náhledu po maximální detail</p>
+        </div>
+        <div class="qualities" id="qualities"></div>
+      </div>
+
+      <div class="group">
+        <div class="row tight">
+          <h3 data-i18n="photos_title">Počet fotek</h3>
+          <p class="sub" id="photo-help" data-i18n="photos_help">Rovnoměrný výběr z celého videa</p>
+        </div>
+        <div class="count-row">
+          <strong id="photo-count-label">80</strong>
+          <input id="photo-range" type="range" min="20" max="80" step="5" value="80">
+        </div>
+        <div class="pills" id="photo-pills"></div>
+        <aside class="hw-limit" id="photo-limit">
+          <strong>Zjišťuji limit tohoto Macu…</strong>
+          <span>Apple Object Capture ho čte z hardwaru. Není to strop programu.</span>
+        </aside>
+      </div>
+
+      <button type="button" class="btn primary wide" id="start" data-i18n="create_model">Vytvořit 3D model</button>
+    </section>
+
+    <section id="stage-progress" class="panel hidden">
+      <p class="label" id="progress-step">Krok 1 ze 2</p>
+      <h2 id="progress-title">Připravuji</h2>
+      <p class="sub" id="progress-status">Začínám</p>
+      <div class="bar"><i id="bar"></i></div>
+      <div class="progress-meta">
+        <span id="progress-percent">0 %</span>
+        <span id="progress-time"></span>
+      </div>
+      <button type="button" class="btn" id="cancel-run" data-i18n="stop">Zastavit</button>
+    </section>
+
+    <section id="stage-done" class="panel hidden">
+      <div class="row">
+        <div>
+          <p class="label" data-i18n="done">Hotovo</p>
+          <h2 id="done-title" data-i18n="compare_models">Porovnání modelů</h2>
+          <p class="sub" id="done-meta"></p>
+        </div>
+        <button type="button" class="btn" id="reset-2" data-i18n="library">Knihovna</button>
+      </div>
+      <div id="compare" class="compare"></div>
+      <div class="again">
+        <h3 data-i18n="better_quality">Potřebujete lepší kvalitu?</h3>
+        <p class="sub" id="again-current"></p>
+        <div class="group">
+          <div class="qualities" id="again-qualities"></div>
+        </div>
+        <div class="group">
+          <div class="row tight">
+            <h3 data-i18n="photos_title">Počet fotek</h3>
+            <p class="sub" id="again-help" data-i18n="photos_help">Rovnoměrný výběr z celého videa</p>
+          </div>
+          <div class="count-row">
+            <strong id="again-count-label">80</strong>
+            <input id="again-range" type="range" min="20" max="80" step="5" value="80">
+          </div>
+          <div class="pills" id="again-pills"></div>
+          <aside class="hw-limit" id="again-limit">
+            <strong>Zjišťuji limit tohoto Macu…</strong>
+            <span>Apple Object Capture ho čte z hardwaru. Není to strop programu.</span>
+          </aside>
+        </div>
+        <button type="button" class="btn primary wide" id="again" data-i18n="generate_another">Vygenerovat další model</button>
+      </div>
+      <div class="actions">
+        <button type="button" class="btn" id="reveal" data-i18n="show_in_finder">Zobrazit ve Finderu</button>
+        <button type="button" class="btn" id="delete-project" data-i18n="delete_project">Smazat projekt</button>
+      </div>
+      <p class="support">
+        <span data-i18n="support_text">Pokud ti to pomohlo, můžeš projekt podpořit.</span>
+        <a href="https://github.com/sponsors/jakubfrasunek" target="_blank" rel="noopener">GitHub Sponsors</a>
+        ·
+        <a href="https://paypal.me/frasunekjakub" target="_blank" rel="noopener">PayPal</a>
+      </p>
+    </section>
+
+    <section id="stage-error" class="panel hidden">
+      <p class="label warn" data-i18n="failed_label">Nepodařilo se dokončit</p>
+      <h2 data-i18n="failed_title">Zpracování selhalo</h2>
+      <p class="sub" id="error-text"></p>
+      <button type="button" class="btn" id="reset-3" data-i18n="back_to_library">Zpět do knihovny</button>
+    </section>
+  </main>
+
+  <div id="drop-overlay" class="drop-overlay" aria-hidden="true">
+    <div class="drop-overlay-card">
+      <p data-i18n="drop_overlay">Pusť videa sem</p>
+      <span data-i18n="drop_overlay_sub">Jedno nebo víc souborů · MOV, MP4, M4V</span>
+    </div>
+  </div>
+  <script src="/i18n.js"></script>
+  <script src="/app.js"></script>
+  <script type="module" src="/viewer.js"></script>
+</body>
+</html>
